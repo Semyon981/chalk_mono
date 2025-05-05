@@ -72,6 +72,19 @@ func (uc *authUseCase) SignUp(ctx context.Context, params SignUpParams) (int64, 
 	return userID, err
 }
 
+type SignInParams struct {
+	Email    string
+	Password string
+}
+
+// func (uc *authUseCase) SignIn(ctx context.Context, params SignInParams) {
+// 	hpass, err := uc.ur.GetHashedPassByEmail(ctx, params.Email)
+// 	if err != nil{
+
+// 	}
+
+// }
+
 const messageTemplate = "Subject: Код подтверждения для аккаунта\nFrom: %s %s\nTo: %s\n\nВаш код - %s"
 
 func (uc *authUseCase) sendMail(address string, code string) error {

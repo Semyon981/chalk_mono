@@ -3,27 +3,12 @@ package repo
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 )
-
-const prefix string = "authcode"
-
-type AuthCodeRepo interface {
-	Set(ctx context.Context, codeID string, code VerificationCode, ttl time.Duration) error
-	Get(ctx context.Context, codeID string) (VerificationCode, error)
-	Delete(ctx context.Context, codeID string) (bool, error)
-}
-
-func NewAuthCodeRepo(rdb *redis.Client) AuthCodeRepo {
-	return &authCodeRepo{rdb: rdb}
-}
-
-type authCodeRepo struct {
-	rdb *redis.Client
-}
 
 type VerificationCode struct {
 	Email string
@@ -38,8 +23,26 @@ func (u *VerificationCode) UnmarshalBinary(data []byte) error {
 	return json.Unmarshal(data, u)
 }
 
+var ErrCodeNotFound = errors.New("code not found")
+
+const authCodeRepoPrefix string = "authcode"
+
+type authCodeRepo struct {
+	rdb *redis.Client
+}
+
+type AuthCodeRepo interface {
+	Set(ctx context.Context, codeID string, code VerificationCode, ttl time.Duration) error
+	Get(ctx context.Context, codeID string) (VerificationCode, error)
+	Delete(ctx context.Context, codeID string) (bool, error)
+}
+
+func NewAuthCodeRepo(rdb *redis.Client) AuthCodeRepo {
+	return &authCodeRepo{rdb: rdb}
+}
+
 func (r *authCodeRepo) Set(ctx context.Context, codeID string, code VerificationCode, ttl time.Duration) error {
-	err := r.rdb.Set(ctx, fmt.Sprintf("%s:%s", prefix, codeID), code, ttl).Err()
+	err := r.rdb.Set(ctx, fmt.Sprintf("%s:%s", authCodeRepoPrefix, codeID), code, ttl).Err()
 	if err != nil {
 		return fmt.Errorf("failed to set value: %w", err)
 	}
@@ -48,10 +51,10 @@ func (r *authCodeRepo) Set(ctx context.Context, codeID string, code Verification
 
 func (r *authCodeRepo) Get(ctx context.Context, codeID string) (VerificationCode, error) {
 	code := VerificationCode{}
-	err := r.rdb.Get(ctx, fmt.Sprintf("%s:%s", prefix, codeID)).Scan(&code)
+	err := r.rdb.Get(ctx, fmt.Sprintf("%s:%s", authCodeRepoPrefix, codeID)).Scan(&code)
 	if err != nil {
 		if err == redis.Nil {
-			return VerificationCode{}, fmt.Errorf("record not found: %w", err)
+			return VerificationCode{}, ErrCodeNotFound
 		}
 		return VerificationCode{}, fmt.Errorf("failed to get value: %w", err)
 	}
@@ -59,7 +62,7 @@ func (r *authCodeRepo) Get(ctx context.Context, codeID string) (VerificationCode
 }
 
 func (r *authCodeRepo) Delete(ctx context.Context, codeID string) (bool, error) {
-	res, err := r.rdb.Del(ctx, fmt.Sprintf("%s:%s", prefix, codeID)).Result()
+	res, err := r.rdb.Del(ctx, fmt.Sprintf("%s:%s", authCodeRepoPrefix, codeID)).Result()
 	if err != nil {
 		return false, fmt.Errorf("failed to delete value: %w", err)
 	}

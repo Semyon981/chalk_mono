@@ -9,6 +9,7 @@ import (
 
 type UsersRepo interface {
 	CreateUser(ctx context.Context, params CreateUserParams) (int64, error)
+	GetHashedPassByEmail(ctx context.Context, email string) (string, error)
 }
 
 func NewUsersRepo(db *pgx.Conn) UsersRepo {
@@ -32,7 +33,6 @@ func (r *usersRepo) CreateUser(ctx context.Context, params CreateUserParams) (in
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. Вставка в users
 	var userID int64
 	err = tx.QueryRow(ctx,
 		`INSERT INTO users (name) VALUES ($1) RETURNING id`,
@@ -42,7 +42,6 @@ func (r *usersRepo) CreateUser(ctx context.Context, params CreateUserParams) (in
 		return 0, fmt.Errorf("insert user: %w", err)
 	}
 
-	// 2. Вставка в credentials
 	_, err = tx.Exec(ctx,
 		`INSERT INTO credentials (user_id, email, hashpass) VALUES ($1, $2, $3)`,
 		userID, params.Email, params.PasswordHashed,
@@ -51,10 +50,18 @@ func (r *usersRepo) CreateUser(ctx context.Context, params CreateUserParams) (in
 		return 0, fmt.Errorf("insert credentials: %w", err)
 	}
 
-	// Подтверждаем транзакцию
 	if err := tx.Commit(ctx); err != nil {
 		return 0, fmt.Errorf("commit tx: %w", err)
 	}
 
 	return userID, nil
+}
+
+func (r *usersRepo) GetHashedPassByEmail(ctx context.Context, email string) (string, error) {
+	hpass := ""
+	err := r.db.QueryRow(ctx, "SELECT hashpass FROM Credentials WHERE email = $1", email).Scan(&hpass)
+	if err != nil {
+		return "", fmt.Errorf("failed to get pass: %w", err)
+	}
+	return hpass, err
 }

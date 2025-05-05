@@ -69,6 +69,18 @@ CREATE INDEX IF NOT EXISTS "idx_credentials__user_id" ON "credentials" ("user_id
 
 ALTER TABLE "credentials" ADD CONSTRAINT "fk_credentials__user_id" FOREIGN KEY ("user_id") REFERENCES "users" ("id");
 
+CREATE TABLE "sessions" (
+  "id" SERIAL PRIMARY KEY,
+  "credential_id" BIGINT,
+  "refresh" TEXT NOT NULL,
+  "issued" TIMESTAMP NOT NULL,
+  "expired" TIMESTAMP
+);
+
+CREATE INDEX "idx_sessions__credential_id" ON "sessions" ("credential_id");
+
+ALTER TABLE "sessions" ADD CONSTRAINT "fk_sessions__credential_id" FOREIGN KEY ("credential_id") REFERENCES "credentials" ("id") ON DELETE SET NULL
+
 -- +down
 DROP TABLE IF EXISTS "accounts";
 DROP TABLE IF EXISTS "courses";
@@ -78,3 +90,4 @@ DROP TABLE IF EXISTS "files";
 DROP TABLE IF EXISTS "users";
 DROP TABLE IF EXISTS "accounts_users";
 DROP TABLE IF EXISTS "credentials";
+DROP TABLE IF EXISTS "sessions";
