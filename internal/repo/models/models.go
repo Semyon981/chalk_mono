@@ -3,23 +3,20 @@ package models
 import "time"
 
 type User struct {
-	ID   int64
-	Name string
-}
-
-type Credential struct {
 	ID       int64
-	UserID   int64
+	Name     string
 	Email    string
 	HashPass string
 }
 
 type Session struct {
-	ID           int64
-	CredentialID int64
-	Refresh      string
-	Issued       time.Time
-	Expired      time.Time
+	ID             int64
+	UserID         int64
+	AccessToken    string
+	RefreshToken   string
+	AccessExpires  time.Time
+	RefreshExpires time.Time
+	Issued         time.Time
 }
 
 type AccountUsers struct {

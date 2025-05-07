@@ -1,0 +1,8 @@
+FROM alpine:latest
+
+WORKDIR /chalk
+
+COPY ./build/bin/app-docker-local /usr/local/bin/chalk
+COPY ./migrations /etc/chalk/migrations
+
+CMD ["chalk"]

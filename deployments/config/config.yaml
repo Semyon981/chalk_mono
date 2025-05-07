@@ -1,0 +1,16 @@
+redis_uri: "redis://redis:6379/0"
+postgres_uri: "postgres://postgres:password@postgres:5432/postgres"
+http_port: "80"
+
+auth:
+  email_from_addr: "noreply@chalkhub.ru"
+  email_from_name: "ChalkHub"
+  code_ttl: "5m"
+  access_token_ttl: "15m"
+  refresh_token_ttl: "720h"
+
+  mailer:
+    smtp_host: "chalkhub.ru"
+    smtp_port: "2525"
+    smtp_sasl_username: "noreply@chalkhub.ru"
+    smtp_sasl_password: "zonwampawasc11"

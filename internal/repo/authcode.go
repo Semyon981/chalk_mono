@@ -1,29 +1,13 @@
 package repo
 
 import (
+	"chalk/internal/repo/models"
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 )
-
-type VerificationCode struct {
-	Email string
-	Code  string
-}
-
-func (u VerificationCode) MarshalBinary() ([]byte, error) {
-	return json.Marshal(u)
-}
-
-func (u *VerificationCode) UnmarshalBinary(data []byte) error {
-	return json.Unmarshal(data, u)
-}
-
-var ErrCodeNotFound = errors.New("code not found")
 
 const authCodeRepoPrefix string = "authcode"
 
@@ -32,8 +16,8 @@ type authCodeRepo struct {
 }
 
 type AuthCodeRepo interface {
-	Set(ctx context.Context, codeID string, code VerificationCode, ttl time.Duration) error
-	Get(ctx context.Context, codeID string) (VerificationCode, error)
+	Set(ctx context.Context, codeID string, code models.EmailCode, ttl time.Duration) error
+	Get(ctx context.Context, codeID string) (models.EmailCode, error)
 	Delete(ctx context.Context, codeID string) (bool, error)
 }
 
@@ -41,7 +25,7 @@ func NewAuthCodeRepo(rdb *redis.Client) AuthCodeRepo {
 	return &authCodeRepo{rdb: rdb}
 }
 
-func (r *authCodeRepo) Set(ctx context.Context, codeID string, code VerificationCode, ttl time.Duration) error {
+func (r *authCodeRepo) Set(ctx context.Context, codeID string, code models.EmailCode, ttl time.Duration) error {
 	err := r.rdb.Set(ctx, fmt.Sprintf("%s:%s", authCodeRepoPrefix, codeID), code, ttl).Err()
 	if err != nil {
 		return fmt.Errorf("failed to set value: %w", err)
@@ -49,14 +33,14 @@ func (r *authCodeRepo) Set(ctx context.Context, codeID string, code Verification
 	return nil
 }
 
-func (r *authCodeRepo) Get(ctx context.Context, codeID string) (VerificationCode, error) {
-	code := VerificationCode{}
+func (r *authCodeRepo) Get(ctx context.Context, codeID string) (models.EmailCode, error) {
+	code := models.EmailCode{}
 	err := r.rdb.Get(ctx, fmt.Sprintf("%s:%s", authCodeRepoPrefix, codeID)).Scan(&code)
 	if err != nil {
 		if err == redis.Nil {
-			return VerificationCode{}, ErrCodeNotFound
+			return models.EmailCode{}, ErrRecordNotFound
 		}
-		return VerificationCode{}, fmt.Errorf("failed to get value: %w", err)
+		return models.EmailCode{}, fmt.Errorf("failed to get value: %w", err)
 	}
 	return code, nil
 }

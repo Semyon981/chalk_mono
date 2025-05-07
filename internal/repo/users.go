@@ -1,15 +1,19 @@
 package repo
 
 import (
+	"chalk/internal/repo/models"
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type UsersRepo interface {
 	CreateUser(ctx context.Context, params CreateUserParams) (int64, error)
-	GetHashedPassByEmail(ctx context.Context, email string) (string, error)
+	GetUserById(ctx context.Context, id int64) (models.User, error)
+	GetUserByEmail(ctx context.Context, email string) (models.User, error)
 }
 
 func NewUsersRepo(db *pgx.Conn) UsersRepo {
@@ -27,41 +31,41 @@ type CreateUserParams struct {
 }
 
 func (r *usersRepo) CreateUser(ctx context.Context, params CreateUserParams) (int64, error) {
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		return 0, fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
 	var userID int64
-	err = tx.QueryRow(ctx,
-		`INSERT INTO users (name) VALUES ($1) RETURNING id`,
-		params.Name,
+	err := r.db.QueryRow(ctx,
+		`INSERT INTO users (name, email, hashpass) VALUES ($1, $2, $3) RETURNING id`,
+		params.Name, params.Email, params.PasswordHashed,
 	).Scan(&userID)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return 0, ErrUniqueViolation
+		}
 		return 0, fmt.Errorf("insert user: %w", err)
 	}
-
-	_, err = tx.Exec(ctx,
-		`INSERT INTO credentials (user_id, email, hashpass) VALUES ($1, $2, $3)`,
-		userID, params.Email, params.PasswordHashed,
-	)
-	if err != nil {
-		return 0, fmt.Errorf("insert credentials: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return 0, fmt.Errorf("commit tx: %w", err)
-	}
-
 	return userID, nil
 }
 
-func (r *usersRepo) GetHashedPassByEmail(ctx context.Context, email string) (string, error) {
-	hpass := ""
-	err := r.db.QueryRow(ctx, "SELECT hashpass FROM Credentials WHERE email = $1", email).Scan(&hpass)
+func (r *usersRepo) GetUserById(ctx context.Context, id int64) (models.User, error) {
+	u := models.User{}
+	err := r.db.QueryRow(ctx, "SELECT id, name, email, hashpass FROM users WHERE id = $1", id).Scan(&u.ID, &u.Name, &u.Email, &u.HashPass)
 	if err != nil {
-		return "", fmt.Errorf("failed to get pass: %w", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.User{}, ErrRecordNotFound
+		}
+		return models.User{}, fmt.Errorf("failed to get pass: %w", err)
 	}
-	return hpass, err
+	return u, nil
+}
+
+func (r *usersRepo) GetUserByEmail(ctx context.Context, email string) (models.User, error) {
+	u := models.User{}
+	err := r.db.QueryRow(ctx, "SELECT id, name, email, hashpass FROM users WHERE email = $1", email).Scan(&u.ID, &u.Name, &u.Email, &u.HashPass)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return models.User{}, ErrRecordNotFound
+		}
+		return models.User{}, fmt.Errorf("failed to get pass: %w", err)
+	}
+	return u, nil
 }
