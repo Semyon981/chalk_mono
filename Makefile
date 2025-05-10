@@ -1,7 +1,3 @@
-# IN_FOLDER=cmd
-# OUT_FOLDER=build
-# IN_FILE=main.go
-# OUT_FILE=bin
 
 
 build-docker:

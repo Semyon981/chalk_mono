@@ -11,21 +11,21 @@ import (
 
 const authCodeRepoPrefix string = "authcode"
 
-type authCodeRepo struct {
+type emailCodeRepo struct {
 	rdb *redis.Client
 }
 
-type AuthCodeRepo interface {
+type EmailCodeRepo interface {
 	Set(ctx context.Context, codeID string, code models.EmailCode, ttl time.Duration) error
 	Get(ctx context.Context, codeID string) (models.EmailCode, error)
 	Delete(ctx context.Context, codeID string) (bool, error)
 }
 
-func NewAuthCodeRepo(rdb *redis.Client) AuthCodeRepo {
-	return &authCodeRepo{rdb: rdb}
+func NewAuthCodeRepo(rdb *redis.Client) EmailCodeRepo {
+	return &emailCodeRepo{rdb: rdb}
 }
 
-func (r *authCodeRepo) Set(ctx context.Context, codeID string, code models.EmailCode, ttl time.Duration) error {
+func (r *emailCodeRepo) Set(ctx context.Context, codeID string, code models.EmailCode, ttl time.Duration) error {
 	err := r.rdb.Set(ctx, fmt.Sprintf("%s:%s", authCodeRepoPrefix, codeID), code, ttl).Err()
 	if err != nil {
 		return fmt.Errorf("failed to set value: %w", err)
@@ -33,7 +33,7 @@ func (r *authCodeRepo) Set(ctx context.Context, codeID string, code models.Email
 	return nil
 }
 
-func (r *authCodeRepo) Get(ctx context.Context, codeID string) (models.EmailCode, error) {
+func (r *emailCodeRepo) Get(ctx context.Context, codeID string) (models.EmailCode, error) {
 	code := models.EmailCode{}
 	err := r.rdb.Get(ctx, fmt.Sprintf("%s:%s", authCodeRepoPrefix, codeID)).Scan(&code)
 	if err != nil {
@@ -45,7 +45,7 @@ func (r *authCodeRepo) Get(ctx context.Context, codeID string) (models.EmailCode
 	return code, nil
 }
 
-func (r *authCodeRepo) Delete(ctx context.Context, codeID string) (bool, error) {
+func (r *emailCodeRepo) Delete(ctx context.Context, codeID string) (bool, error) {
 	res, err := r.rdb.Del(ctx, fmt.Sprintf("%s:%s", authCodeRepoPrefix, codeID)).Result()
 	if err != nil {
 		return false, fmt.Errorf("failed to delete value: %w", err)

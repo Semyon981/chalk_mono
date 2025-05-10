@@ -10,9 +10,12 @@ import (
 	"chalk/pkg/migrator"
 	"context"
 	"flag"
+	"fmt"
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -49,6 +52,22 @@ func main() {
 		return
 	}
 	rcli := redis.NewClient(opts)
+
+	// s3 connect
+	endpoint := "play.min.io"
+	accessKeyID := "Q3AM3UQ867SPQQA43P2F"
+	secretAccessKey := "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
+	useSSL := false
+	miniocli, err := minio.New(endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
+		Secure: useSSL,
+	})
+	if err != nil {
+		log.Errorf("minio connect: %v", err)
+		return
+	}
+
+	fmt.Println("miniocli", miniocli)
 
 	// repositories
 	acrepo := repo.NewAuthCodeRepo(rcli)

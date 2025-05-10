@@ -1,10 +1,10 @@
 package usecases
 
 import (
+	"chalk/internal/entities"
 	uerrors "chalk/internal/errors"
 	"chalk/internal/repo"
 	"chalk/internal/repo/models"
-	"chalk/internal/usecases/entities"
 	"chalk/pkg/log"
 	"chalk/pkg/mailer"
 	"context"
@@ -30,7 +30,7 @@ type AuthUseCase interface {
 }
 
 func NewAuthUseCase(
-	cr repo.AuthCodeRepo,
+	cr repo.EmailCodeRepo,
 	ur repo.UsersRepo,
 	sr repo.SessionsRepo,
 	codeTTL time.Duration,
@@ -54,7 +54,7 @@ func NewAuthUseCase(
 }
 
 type authUseCase struct {
-	cr repo.AuthCodeRepo
+	cr repo.EmailCodeRepo
 	ur repo.UsersRepo
 	sr repo.SessionsRepo
 

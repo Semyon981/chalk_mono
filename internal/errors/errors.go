@@ -26,6 +26,14 @@ var (
 	ErrInvalidCode           = userError{26, "invalid code"}
 	ErrUserIsNotRegistered   = userError{27, "user is not registered"}
 	ErrUserAlreadyRegistered = userError{28, "user already registered"}
+
+	ErrUserNotFound = userError{31, "user not found"}
+
+	ErrPermissionDenied     = userError{41, "you don't have permission to perform this action"}
+	ErrUserAlreadyInAccount = userError{42, "user is already in the account"}
+	ErrCannotRemoveYourself = userError{43, "you can't remove yourself"}
+	ErrCannotChangeOwnRole  = userError{44, "you can't change your own role"}
+	ErrCannotModifyOwner    = userError{45, "you can't modify or remove the owner"}
 )
 
 // var userErrors = map[error]struct{}{

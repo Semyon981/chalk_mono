@@ -1,0 +1,148 @@
+package usecases
+
+import (
+	uerrors "chalk/internal/errors"
+	"chalk/internal/repo"
+	"chalk/internal/repo/models"
+	"context"
+)
+
+type AccountsUseCase interface {
+	CreateAccount(ctx context.Context, userID int64, name string) (models.Account, error)
+	AddMember(ctx context.Context, actorID, accountID, userID int64, role models.AccountMembersRole) error
+	RemoveMember(ctx context.Context, actorID, memberID int64) error
+	ChangeMemberRole(ctx context.Context, actorID, memberID int64, newRole models.AccountMembersRole) error
+	GetAccountMembers(ctx context.Context, accountID int64) ([]models.AccountMemberWithMemberInfo, error)
+	GetUserAccounts(ctx context.Context, userID int64) ([]models.AccountMemberWithAccountInfo, error)
+}
+
+type accountsUseCase struct {
+	repo repo.AccountsRepo
+}
+
+func NewAccountsUseCase(repo repo.AccountsRepo) AccountsUseCase {
+	return &accountsUseCase{repo: repo}
+}
+
+func (uc *accountsUseCase) CreateAccount(ctx context.Context, userID int64, name string) (models.Account, error) {
+	return uc.repo.CreateAccount(ctx, repo.CreateAccountParams{
+		OwnerUserID: userID,
+		AccountName: name,
+	})
+}
+
+func (uc *accountsUseCase) AddMember(ctx context.Context, actorID, accountID, userID int64, role models.AccountMembersRole) error {
+	actorRole, err := uc.getUserRole(ctx, actorID, accountID)
+	if err != nil {
+		return err
+	}
+
+	if actorRole != models.AccountMembersRoleOwner && actorRole != models.AccountMembersRoleAdmin {
+		return uerrors.ErrPermissionDenied
+	}
+
+	if role == models.AccountMembersRoleAdmin && actorRole != models.AccountMembersRoleOwner {
+		return uerrors.ErrPermissionDenied
+	}
+
+	isInAccount, err := uc.repo.IsUserInAccount(ctx, userID, accountID)
+	if err != nil {
+		return err
+	}
+	if isInAccount {
+		return uerrors.ErrUserAlreadyInAccount
+	}
+
+	_, err = uc.repo.AddAccountMember(ctx, repo.AddAccountMemberParams{
+		UserID:    userID,
+		AccountID: accountID,
+		Role:      role,
+	})
+	return err
+}
+
+func (uc *accountsUseCase) RemoveMember(ctx context.Context, actorID, memberID int64) error {
+	member, err := uc.repo.GetAccountMemberByID(ctx, memberID)
+	if err != nil {
+		return err
+	}
+
+	actorRole, err := uc.getUserRole(ctx, actorID, member.AccountID)
+	if err != nil {
+		return err
+	}
+
+	if actorID == member.UserID {
+		return uerrors.ErrCannotRemoveYourself
+	}
+
+	if actorRole != models.AccountMembersRoleOwner && actorRole != models.AccountMembersRoleAdmin {
+		return uerrors.ErrPermissionDenied
+	}
+
+	// Защита от удаления владельца или админа другим админом
+	if member.Role == models.AccountMembersRoleOwner || (member.Role == models.AccountMembersRoleAdmin && actorRole != models.AccountMembersRoleOwner) {
+		return uerrors.ErrPermissionDenied
+	}
+
+	return uc.repo.RemoveAccountMember(ctx, memberID)
+}
+
+func (uc *accountsUseCase) ChangeMemberRole(ctx context.Context, actorID, memberID int64, newRole models.AccountMembersRole) error {
+	member, err := uc.repo.GetAccountMemberByID(ctx, memberID)
+	if err != nil {
+		return err
+	}
+
+	actorRole, err := uc.getUserRole(ctx, actorID, member.AccountID)
+	if err != nil {
+		return err
+	}
+
+	if actorID == member.UserID {
+		return uerrors.ErrCannotChangeOwnRole
+	}
+
+	// Только владелец может менять роли админа и назначать админов
+	if actorRole != models.AccountMembersRoleOwner {
+		return uerrors.ErrPermissionDenied
+	}
+
+	// Защита от смены роли владельца
+	if member.Role == models.AccountMembersRoleOwner {
+		return uerrors.ErrCannotModifyOwner
+	}
+
+	return uc.repo.UpdateAccountMemberRole(ctx, repo.UpdateAccountMemberRoleParams{
+		MemberID: memberID,
+		Role:     newRole,
+	})
+}
+
+func (uc *accountsUseCase) GetAccountMembers(ctx context.Context, accountID int64) ([]models.AccountMemberWithMemberInfo, error) {
+	return uc.repo.GetAccountMembersByAccountID(ctx, repo.GetAccountMembersByAccountIDParams{
+		AccountID: accountID,
+	})
+}
+
+func (uc *accountsUseCase) GetUserAccounts(ctx context.Context, userID int64) ([]models.AccountMemberWithAccountInfo, error) {
+	return uc.repo.GetAccountMembersByMemberID(ctx, repo.GetAccountMembersByMemberIDParams{
+		UserID: userID,
+	})
+}
+
+// Вспомогательная функция: получает роль пользователя в аккаунте
+func (uc *accountsUseCase) getUserRole(ctx context.Context, userID, accountID int64) (models.AccountMembersRole, error) {
+	memberships, err := uc.repo.GetAccountMembersByMemberID(ctx, repo.GetAccountMembersByMemberIDParams{
+		UserID: userID,
+	})
+	if err != nil {
+		return "", err
+	}
+	for _, m := range memberships {
+		if m.AccountID == accountID {
+			return m.Role, nil
+		}
+	}
+	return "", uerrors.ErrPermissionDenied
+}
