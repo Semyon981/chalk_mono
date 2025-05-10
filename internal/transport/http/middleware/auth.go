@@ -13,6 +13,8 @@ func AuthMiddleware(next http.Handler, auc usecases.AuthUseCase) http.Handler {
 	return &authMiddleware{next: next, auc: auc}
 }
 
+const SessionKey string = "session"
+
 type authMiddleware struct {
 	next http.Handler
 	auc  usecases.AuthUseCase
@@ -35,6 +37,6 @@ func (mw *authMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	r = r.WithContext(context.WithValue(r.Context(), "session", session))
+	r = r.WithContext(context.WithValue(r.Context(), SessionKey, session))
 	mw.next.ServeHTTP(w, r)
 }
